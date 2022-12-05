@@ -197,7 +197,7 @@ p <- plot_grid(props,
                labels = c("", "C"))
 
 ggsave(plot = p,
-       filename = "kelp_protection_realm_country.png",
+       filename = here("img", "kelp_protection_realm_country.png"),
        width = 10,
        height = 5)
 #
