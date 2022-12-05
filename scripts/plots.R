@@ -15,6 +15,9 @@
 # Load packages ----------------------------------------------------------------
 library(here)
 library(cowplot)
+library(ggrepel)
+library(sf)
+library(ggalluvial)
 library(tidyverse)
 
 
@@ -35,32 +38,32 @@ pal <- c("gray90", "orange", "cadetblue", "steelblue")
 
 ## PROCESSING ##################################################################
 
-# Build data at the realm-level ------------------------------------------------
-realm_data <- kelp_mpa_and_realm %>%
+# data frame format data ----------------------------------------------------------------
+kelp_mpa_and_realm_data <- kelp_mpa_and_realm %>% 
   st_drop_geometry() %>%
+  replace_na(replace = list(status = "Outside MPA")) %>%
+  mutate(status = fct_relevel(status, c("Outside MPA", "None", "Partial", "Full")),
+         realm = str_replace_all(realm, " ", "\n"))
+
+# Build data at the realm-level ------------------------------------------------
+realm_data <- kelp_mpa_and_realm_data %>%
   group_by(realm, status) %>%
   summarize(kelp_area = sum(kelp_area)) %>%
   ungroup() %>%
   group_by(realm) %>%
   mutate(pct_area = kelp_area / sum(kelp_area)) %>%
-  ungroup() %>%
-  replace_na(replace = list(status = "Outside MPA")) %>%
-  mutate(status = fct_relevel(status, c("Outside MPA", "None", "Partial", "Full")))
+  ungroup()
 
 # Build data at the country-level
-country_data <- kelp_mpa_and_realm %>%
-  st_drop_geometry() %>%
+country_data <- kelp_mpa_and_realm_data %>%
   group_by(country, status) %>%
   summarize(kelp_area = sum(kelp_area)) %>%
   ungroup() %>%
   group_by(country) %>%
   mutate(pct_area = kelp_area / sum(kelp_area)) %>%
-  ungroup() %>%
-  replace_na(replace = list(status = "Outside MPA")) %>%
-  mutate(status = fct_relevel(status, c("Outside MPA", "None", "Partial", "Full")))
+  ungroup()
 
-cr_data <- kelp_mpa_and_realm %>%
-  st_drop_geometry() %>%
+cr_data <- kelp_mpa_and_realm_data %>%
   group_by(realm, rlm_code, country, status) %>%
   summarize(kelp_area = sum(kelp_area)) %>%
   ungroup() %>%
@@ -68,27 +71,19 @@ cr_data <- kelp_mpa_and_realm %>%
   ungroup() %>%
   replace_na(replace = list(status = "Outside MPA")) %>%
   group_by(country) %>% 
-  mutate(pct_country_fully_protected = sum(pct_area)) %>% 
+  mutate(pct_country = sum(pct_area)) %>% 
   ungroup() %>% 
   group_by(realm) %>% 
-  mutate(pct_realm_fully_protected = sum(pct_area)) %>% 
+  mutate(pct_realm = sum(pct_area)) %>% 
   ungroup() %>% 
-  mutate(status = fct_relevel(status, c("Outside MPA", "None", "Partial", "Full")),
-         country = fct_reorder(country, pct_country_fully_protected),
-         realm = str_replace_all(realm, " ", "\n"),
-         realm = fct_reorder(realm, pct_realm_fully_protected))
+  mutate(country = fct_reorder(country, pct_country),
+         realm = fct_reorder(realm, pct_realm))
 
 ## VISUALIZE ###################################################################
 
 # X ----------------------------------------------------------------------------
 
 ## EXPORT ######################################################################
-labs <- tibble(
-  x = "ARG",
-  y = c(0.1, 0.3) + 0.05,
-  label = c("10%", "30%")
-)
-
 labs <- tibble(
   x = 1,
   y = c(0.1, 0.3) + 0.05,
@@ -107,21 +102,27 @@ realm_plot <- ggplot(data = realm_data) +
              linetype = "dashed",
              size = 0.3) +
   geom_hline(yintercept = 1, size = 0.3) +
-  scale_fill_manual(values = pal) +
+  geom_text(data = realm_data %>%
+              select(realm) %>%
+              distinct(),
+            mapping = aes(x = realm, y = 0.75, label = realm),
+            inherit.aes = F,
+            size = 2
+            ) +
+  scale_x_discrete(labels = NULL) +
   scale_y_continuous(limits = c(-0.25, NA),
                      expand = c(0, 0),
                      labels = NULL) +
+  scale_fill_manual(values = pal) +
   geom_text(
     data = labs,
     aes(x = x, y = y, label = label),
-    size = 3,
+    size = 2,
     inherit.aes = F
   ) +
   coord_polar() +
-  theme_minimal() +
-  theme(panel.grid = element_blank(),
-        axis.text = element_text(size = 7),
-        legend.position = "None") +
+  theme_void() +
+  theme(legend.position = "None") +
   labs(x = "",
        y = "",
        fill = "Fishing restrictions")
@@ -138,52 +139,62 @@ country_plot <- ggplot(data = country_data) +
              linetype = "dashed",
              size = 0.3) +
   geom_hline(yintercept = 1, size = 0.3) +
-  scale_fill_manual(values = pal) +
+  geom_text(data = country_data %>%
+              select(country) %>%
+              distinct(),
+            mapping = aes(x = country, y = 0.75, label = country),
+            inherit.aes = F,
+            size = 2
+  ) +
+  scale_x_discrete(labels = NULL) +
   scale_y_continuous(limits = c(-0.25, NA),
                      expand = c(0, 0),
                      labels = NULL) +
+  scale_fill_manual(values = pal) +
   geom_text(
     data = labs,
     aes(x = x, y = y, label = label),
-    size = 3,
+    size = 2,
     inherit.aes = F
   ) +
   coord_polar() +
-  theme_minimal() +
-  theme(panel.grid = element_blank(),
-        axis.text = element_text(size = 7),
+  theme_void() +
+  theme(axis.text = element_text(size = 7),
         legend.position = "None") +
   labs(x = "",
        y = "",
        fill = "Fishing restrictions")
 
 alluvial <- ggplot(data = cr_data,
-       aes(axis1 = country, axis2 = realm,
-           y = pct_area)) +
+                   aes(axis1 = country,
+                       axis2 = status,
+                       axis3 = realm,
+                       y = pct_area)) +
   geom_alluvium(aes(fill = status), color = "black", size = 0.1, alpha = 0.75) +
-  geom_stratum(width = 1/3, size = 0.3) +
+  geom_stratum(width = 1/4, size = 0.3) +
   geom_text(stat = "stratum",
             aes(label = after_stat(stratum)),
-            parse = F,
-            size = 3) +
-  scale_x_discrete(limits = c("Country", "Realm"), expand = c(0, 0)) +
-  scale_y_continuous(labels = scales::percent) +
+            size = 2) +
+  scale_x_discrete(limits = c("Country", "Status", "Realm"), expand = c(0, 0)) +
+  scale_y_continuous(breaks = seq(0, 1, by = 0.1),
+                     labels = scales::percent) +
   theme_minimal() +
+  theme(panel.grid = element_blank()) +
   scale_fill_manual(values = pal) +
-  theme(legend.position = "top") +
-  coord_flip() +
-  labs(y = "% Area",
-       fill = "Fishing restriction\nof MPA")
-
+  theme(legend.position = "bottom") +
+  labs(y = "% Area with kelp",
+       fill = "Fishing restriction")
 
 props <- plot_grid(realm_plot,
                    country_plot,
-                   ncol = 1)
+                   ncol = 1, 
+                   labels = "AUTO")
 
-plot_grid(alluvial,
-          props,
+plot_grid(props,
+          alluvial,
           ncol = 2,
-          rel_widths = c(2, 1))
+          rel_widths = c(1, 2.5),
+          labels = c("", "C"))
 
 
 #
