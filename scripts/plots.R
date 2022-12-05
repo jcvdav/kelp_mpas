@@ -190,13 +190,16 @@ props <- plot_grid(realm_plot,
                    ncol = 1, 
                    labels = "AUTO")
 
-plot_grid(props,
-          alluvial,
-          ncol = 2,
-          rel_widths = c(1, 2.5),
-          labels = c("", "C"))
+p <- plot_grid(props,
+               alluvial,
+               ncol = 2,
+               rel_widths = c(1, 2.5),
+               labels = c("", "C"))
 
-
+ggsave(plot = p,
+       filename = "kelp_protection_realm_country.png",
+       width = 10,
+       height = 5)
 #
 #
 # # Errors
