@@ -75,9 +75,9 @@ kelp <- st_read(here("data", "processed", "clean_kelp.gpkg"))
 mpas <- st_read(here("data", "processed", "clean_mpas.gpkg"))
 
 meow <- st_read(here("data", "raw", "clean_meow.gpkg")) %>% 
-  group_by(realm, rlm_code) %>% 
-  summarize(a = 1) %>% 
-  ungroup() %>% 
+  group_by(realm) %>%
+  summarize(a = 1) %>%
+  ungroup() %>%
   select(-a)
 
 

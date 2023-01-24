@@ -25,12 +25,8 @@ library(tidyverse)
 kelp_mpa_and_realm <-
   readRDS(file = here("data", "output", "intersected_kelp_mpa_realm.rds"))
 
-meow <- st_read(here("data", "raw", "clean_meow.gpkg")) %>% 
-  group_by(realm, rlm_code) %>% 
-  summarize(a = 1) %>% 
-  ungroup() %>% 
-  select(-a)
-
+kelp_mpa_and_ecoregion <-
+  readRDS(file = here("data", "output", "intersected_kelp_mpa_ecoregion.rds"))
 
 # Define palette colors --------------------------------------------------------
 pal <- c("gray90", "orange", "cadetblue", "steelblue")
@@ -38,15 +34,15 @@ pal <- c("gray90", "orange", "cadetblue", "steelblue")
 
 ## PROCESSING ##################################################################
 
-# data frame format data ----------------------------------------------------------------
-kelp_mpa_and_realm_data <- kelp_mpa_and_realm %>% 
+# format data ------------------------------------------------------------------
+kelp_mpa_and_ecoregion_data <- kelp_mpa_and_ecoregion %>% 
   st_drop_geometry() %>%
   replace_na(replace = list(status = "Outside MPA")) %>%
   mutate(status = fct_relevel(status, c("Outside MPA", "None", "Partial", "Full")),
          realm = str_replace_all(realm, " ", "\n"))
 
 # Build data at the realm-level ------------------------------------------------
-realm_data <- kelp_mpa_and_realm_data %>%
+realm_data <- kelp_mpa_and_ecoregion_data %>%
   group_by(realm, status) %>%
   summarize(kelp_area = sum(kelp_area)) %>%
   ungroup() %>%
@@ -55,7 +51,7 @@ realm_data <- kelp_mpa_and_realm_data %>%
   ungroup()
 
 # Build data at the country-level
-country_data <- kelp_mpa_and_realm_data %>%
+country_data <- kelp_mpa_and_ecoregion_data %>%
   group_by(country, status) %>%
   summarize(kelp_area = sum(kelp_area)) %>%
   ungroup() %>%
@@ -63,20 +59,28 @@ country_data <- kelp_mpa_and_realm_data %>%
   mutate(pct_area = kelp_area / sum(kelp_area)) %>%
   ungroup()
 
-cr_data <- kelp_mpa_and_realm_data %>%
-  group_by(realm, rlm_code, country, status) %>%
+cr_data <- kelp_mpa_and_ecoregion_data %>%
+  group_by(ecoregion, eco_code, province, pro_code, realm, rlm_code, country, status) %>%
   summarize(kelp_area = sum(kelp_area)) %>%
   ungroup() %>%
   mutate(pct_area = kelp_area / sum(kelp_area)) %>%
   ungroup() %>%
   replace_na(replace = list(status = "Outside MPA")) %>%
-  group_by(country) %>% 
-  mutate(pct_country = sum(pct_area)) %>% 
+  group_by(ecoregion) %>%
+  mutate(pct_eco = sum(pct_area)) %>%
+  ungroup() %>%
+  group_by(province) %>% 
+  mutate(pct_pro = sum(pct_area)) %>% 
   ungroup() %>% 
   group_by(realm) %>% 
   mutate(pct_realm = sum(pct_area)) %>% 
   ungroup() %>% 
+  group_by(country) %>% 
+  mutate(pct_country = sum(pct_area)) %>% 
+  ungroup() %>% 
   mutate(country = fct_reorder(country, pct_country),
+         eco_code = fct_reorder(as.character(eco_code), pct_eco),
+         province = fct_reorder(province, pct_pro),
          realm = fct_reorder(realm, pct_realm))
 
 ## VISUALIZE ###################################################################
@@ -168,14 +172,20 @@ country_plot <- ggplot(data = country_data) +
 alluvial <- ggplot(data = cr_data,
                    aes(axis1 = country,
                        axis2 = status,
+                       # axis4 = province,
                        axis3 = realm,
+                       axis4 = eco_code,
                        y = pct_area)) +
   geom_alluvium(aes(fill = status), color = "black", size = 0.1, alpha = 0.75) +
   geom_stratum(width = 1/4, size = 0.3) +
   geom_text(stat = "stratum",
             aes(label = after_stat(stratum)),
             size = 2) +
-  scale_x_discrete(limits = c("Country", "Status", "Realm"), expand = c(0, 0)) +
+  scale_x_discrete(limits = c("Country (ISO3)",
+                              "Status",
+                              "Realm",
+                              "Ecoregion"),
+                   expand = c(0, 0)) +
   scale_y_continuous(breaks = seq(0, 1, by = 0.1),
                      labels = scales::percent) +
   theme_minimal() +
@@ -197,9 +207,10 @@ p <- plot_grid(props,
                labels = c("", "C"))
 
 ggsave(plot = p,
-       filename = here("img", "kelp_protection_realm_country.png"),
+       filename = here("img", "kelp_protection_ecoregion_realm_country.png"),
        width = 10,
        height = 5)
+
 #
 #
 # # Errors
