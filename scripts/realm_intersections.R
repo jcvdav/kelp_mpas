@@ -24,7 +24,6 @@ sf_use_s2(FALSE)
 
 # Define some functions --------------------------------------------------------
 fast_intersect <- function(x, y) {
-  # browser()
   x <- x %>% 
     st_make_valid() %>% 
     filter(st_is_valid(.)) %>% 
@@ -57,8 +56,7 @@ fast_intersect <- function(x, y) {
     ungroup() %>%
     st_make_valid() %>%
     # filter(st_is_valid(.)) %>%
-    filter(!st_is_empty(.)) %>% 
-    mutate(kelp_area = as.numeric(st_area(.)))
+    filter(!st_is_empty(.))
 
   combined <- join_coverage %>%
     filter(!x_id %in% kelp_needs_intersection) %>%
@@ -112,7 +110,8 @@ kelp_and_mpa_unnested <- kelp_and_mpa %>%
   st_sf() 
 
 kelp_mpa_and_realm <- kelp_and_mpa_unnested %>% 
-  st_intersection(meow)
+  st_intersection(meow) %>% 
+  mutate(kelp_area = as.numeric(st_area(.)))
 
 # EXPORT #######################################################################
 saveRDS(kelp_mpa_and_realm,
