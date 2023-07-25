@@ -13,14 +13,16 @@
 ## SET UP ######################################################################
 
 # Load packages ----------------------------------------------------------------
-library(here)
-library(sf)
-library(future)
-library(furrr)
-library(tidyverse)
+pacman::p_load(
+  here,
+  sf,
+  future,
+  furrr,
+  tidyverse
+)
 
 # Turn off spatial sphere
-sf_use_s2(FALSE) 
+# sf_use_s2(FALSE) 
 
 # Define some functions --------------------------------------------------------
 fast_intersect <- function(x, y) {

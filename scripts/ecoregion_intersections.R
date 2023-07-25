@@ -6,7 +6,7 @@
 # juancvd@stanford.edu
 # date
 #
-# Description
+# This is the prefered one for analysis
 #
 ################################################################################
 
@@ -20,7 +20,7 @@ library(furrr)
 library(tidyverse)
 
 # Turn off spatial sphere
-sf_use_s2(FALSE) 
+# sf_use_s2(FALSE) 
 
 # Define some functions --------------------------------------------------------
 fast_intersect <- function(x, y) {

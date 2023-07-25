@@ -22,14 +22,11 @@ library(tidyverse)
 
 
 # Load data --------------------------------------------------------------------
-kelp_mpa_and_realm <-
-  readRDS(file = here("data", "output", "intersected_kelp_mpa_realm.rds"))
-
 kelp_mpa_and_ecoregion <-
   readRDS(file = here("data", "output", "intersected_kelp_mpa_ecoregion.rds"))
 
 # Define palette colors --------------------------------------------------------
-pal <- c("gray90", "orange", "cadetblue", "steelblue")
+pal <- c("gray90", "#1e699d", "#0d9948", "#faec27", "#eca929", "#dd3c40")
 
 
 ## PROCESSING ##################################################################
@@ -37,13 +34,15 @@ pal <- c("gray90", "orange", "cadetblue", "steelblue")
 # format data ------------------------------------------------------------------
 kelp_mpa_and_ecoregion_data <- kelp_mpa_and_ecoregion %>% 
   st_drop_geometry() %>%
-  replace_na(replace = list(status = "Outside MPA")) %>%
-  mutate(status = fct_relevel(status, c("Outside MPA", "None", "Partial", "Full")),
+  replace_na(replace = list(lfp_cat = "None",
+                            lfp_group = "Outside MPA")) %>%
+  mutate(lfp_cat = fct_relevel(lfp_cat, c("None", "Least", "Less", "Moderately", "Heavily", "Most")),
+         lfp_group = fct_relevel(lfp_group, c("Outside MPA", "Less", "Moderately", "Highly")),
          realm = str_replace_all(realm, " ", "\n"))
 
 # Build data at the realm-level ------------------------------------------------
 realm_data <- kelp_mpa_and_ecoregion_data %>%
-  group_by(realm, status) %>%
+  group_by(realm, lfp_cat) %>%
   summarize(kelp_area = sum(kelp_area)) %>%
   ungroup() %>%
   group_by(realm) %>%
@@ -52,7 +51,7 @@ realm_data <- kelp_mpa_and_ecoregion_data %>%
 
 # Build data at the country-level
 country_data <- kelp_mpa_and_ecoregion_data %>%
-  group_by(country, status) %>%
+  group_by(country, lfp_cat) %>%
   summarize(kelp_area = sum(kelp_area)) %>%
   ungroup() %>%
   group_by(country) %>%
@@ -60,18 +59,19 @@ country_data <- kelp_mpa_and_ecoregion_data %>%
   ungroup()
 
 cr_data <- kelp_mpa_and_ecoregion_data %>%
-  group_by(ecoregion, eco_code, province, pro_code, realm, rlm_code, country, status) %>%
-  summarize(kelp_area = sum(kelp_area)) %>%
+  group_by(ecoregion,
+           province,
+           realm, country, lfp_group, lfp_cat) %>%
+  summarize(kelp_area = sum(kelp_area), .groups = "drop") %>%
   ungroup() %>%
   mutate(pct_area = kelp_area / sum(kelp_area)) %>%
   ungroup() %>%
-  replace_na(replace = list(status = "Outside MPA")) %>%
   group_by(ecoregion) %>%
   mutate(pct_eco = sum(pct_area)) %>%
   ungroup() %>%
-  group_by(province) %>% 
-  mutate(pct_pro = sum(pct_area)) %>% 
-  ungroup() %>% 
+  group_by(province) %>%
+  mutate(pct_pro = sum(pct_area)) %>%
+  ungroup() %>%
   group_by(realm) %>% 
   mutate(pct_realm = sum(pct_area)) %>% 
   ungroup() %>% 
@@ -79,9 +79,9 @@ cr_data <- kelp_mpa_and_ecoregion_data %>%
   mutate(pct_country = sum(pct_area)) %>% 
   ungroup() %>% 
   mutate(country = fct_reorder(country, pct_country),
-         eco_code = fct_reorder(as.character(eco_code), pct_eco),
+         realm = fct_reorder(realm, pct_realm),
          province = fct_reorder(province, pct_pro),
-         realm = fct_reorder(realm, pct_realm))
+         ecoregion = fct_reorder(ecoregion, pct_eco))
 
 ## VISUALIZE ###################################################################
 
@@ -95,7 +95,7 @@ labs <- tibble(
 )
 
 realm_plot <- ggplot(data = realm_data) +
-  geom_col(aes(x = realm, y = pct_area, fill = status),
+  geom_col(aes(x = realm, y = pct_area, fill = lfp_cat),
            color = "black",
            size = 0.1) +
   geom_hline(yintercept = 0, size = 0.3) +
@@ -132,7 +132,7 @@ realm_plot <- ggplot(data = realm_data) +
        fill = "Fishing restrictions")
 
 country_plot <- ggplot(data = country_data) +
-  geom_col(aes(x = country, y = pct_area, fill = status),
+  geom_col(aes(x = country, y = pct_area, fill = lfp_cat),
            color = "black",
            size = 0.1) +
   geom_hline(yintercept = 0, size = 0.3) +
@@ -169,31 +169,35 @@ country_plot <- ggplot(data = country_data) +
        y = "",
        fill = "Fishing restrictions")
 
-alluvial <- ggplot(data = cr_data,
-                   aes(axis1 = country,
-                       axis2 = status,
-                       # axis4 = province,
-                       axis3 = realm,
-                       axis4 = eco_code,
-                       y = pct_area)) +
-  geom_alluvium(aes(fill = status), color = "black", size = 0.1, alpha = 0.75) +
-  geom_stratum(width = 1/4, size = 0.3) +
+alluvial_plot <- cr_data %>% 
+  select(realm, country, lfp_group, lfp_cat, pct_area) %>%
+  distinct() %>%
+  group_by(realm, country, lfp_group, lfp_cat) %>%
+  summarize(pct_area = sum(pct_area), .groups = "drop") %>%
+  ungroup() %>%
+  ggplot(aes(axis1 = country,
+             axis2 = lfp_group,
+             axis3 = realm,
+             y = pct_area)) +
+  geom_alluvium(aes(fill = lfp_cat),
+                color = "black", size = 0.1, alpha = 1) +
+  geom_stratum(width = 0.1, size = 0.3) +
   geom_text(stat = "stratum",
             aes(label = after_stat(stratum)),
             size = 2) +
   scale_x_discrete(limits = c("Country (ISO3)",
-                              "Status",
-                              "Realm",
-                              "Ecoregion"),
+                              "LFP Category",
+                              "Realm"),
                    expand = c(0, 0)) +
   scale_y_continuous(breaks = seq(0, 1, by = 0.1),
-                     labels = scales::percent) +
+                     labels = scales::percent,
+                     expand = c(0,0)) +
   theme_minimal() +
   theme(panel.grid = element_blank()) +
   scale_fill_manual(values = pal) +
-  theme(legend.position = "bottom") +
+  theme(legend.position = "left") +
   labs(y = "% Area with kelp",
-       fill = "Fishing restriction")
+       fill = "LFP score")
 
 props <- plot_grid(realm_plot,
                    country_plot,
@@ -201,84 +205,14 @@ props <- plot_grid(realm_plot,
                    labels = "AUTO")
 
 p <- plot_grid(props,
-               alluvial,
+               alluvial_plot,
                ncol = 2,
                rel_widths = c(1, 2.5),
                labels = c("", "C"))
 
+# Export #######################################################################
 ggsave(plot = p,
-       filename = here("img", "kelp_protection_ecoregion_realm_country.png"),
+       filename = here("img", "kelp_protection_realm_country.png"),
        width = 10,
        height = 5)
 
-#
-#
-# # Errors
-#
-# true_area <- kelp %>%
-#   st_drop_geometry() %>%
-#   group_by(country) %>%
-#   summarize(true_area = sum(kelp_area))
-#
-# other_area <- results %>%
-#   select(country, summary) %>%
-#   unnest(summary) %>%
-#   ungroup() %>%
-#   group_by(country) %>%
-#   summarize(other_area = sum(kelp_area))
-#
-# left_join(true_area, other_area, by = "country") %>%
-#   filter(true_area < other_area) %>%
-#   pull(country)
-#
-# ## EXPORT ######################################################################
-#
-# # X ----------------------------------------------------------------------------
-# saveRDS(results,
-#         file = here("data", "output", "kelp_mpa_intersected.rds"))
-#
-#
-#
-#
-# # Ejemplo de duplicados en Mexico
-# results %>%
-#   filter(country == "MEX") %>%
-#   select(country, data) %>%
-#   unnest(data) %>%
-#   # filter(x_id %in% 2353:2359) %>%
-#   st_as_sf() %>%
-#   mapview(zcol = "status")
-#
-# # Diagnósitco
-# mpas %>%
-#   filter(country == "MEX") %>%
-#   mutate(p_id = 1:nrow(.)) %>%
-#   mapview(zcol = "p_id")
-#
-# mpas %>%
-#   filter(country == "MEX") %>%
-#   mutate(p_id = 1:nrow(.),
-#          status = fct_relevel(status, c("None", "Partial", "Full"))) %>%
-#   arrange(desc(status)) %>%
-#   st_intersection() %>%
-#   select(-origins) %>%
-#   mapview(zcol = "p_id")
-#
-#
-# ################################
-# # Ejemplo de terrestres en USA
-# mpas %>%
-#   filter(country == "ZAF") %>%
-#   mutate(p_id = 1:nrow(.)) %>%
-#   mapview(zcol = "status")
-#
-# mpas %>%
-#   filter(country == "NZL") %>%
-#   mutate(p_id = 1:nrow(.)) %>%
-#   arrange(status) %>%
-#   # st_set_precision(1000) %>%
-#   st_make_valid() %>%
-#   st_intersection() %>%
-#   select(-origins) %>%
-#   filter(!st_geometry_type(.) == "POINT") %>%
-#   mapview(zcol = "p_id")

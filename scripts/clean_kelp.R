@@ -13,11 +13,16 @@
 ## SET UP ######################################################################
 
 # Load packages ----------------------------------------------------------------
+pacman::p_load(
+  here,
+  sf,
+  tidyverse
+)
 
-sf_use_s2(FALSE)
+# sf_use_s2(FALSE)
 
 # Load data --------------------------------------------------------------------
-raw_kelp <- st_read(here("data", "raw", "kelp"))
+raw_kelp <- st_read(here("data", "raw", "kelp", "07-27-23"))
 
 ## PROCESSING ##################################################################
 
@@ -41,8 +46,9 @@ clean_kelp <- raw_kelp %>%
       country == "New Zealand" ~ "NZL",
       country == "Peru" ~ "PER",
       country == "South Africa" ~ "ZAF",
-      country == "United States of America" ~ "USA",
-      country == "Southern French Territories" ~ "FRA"
+      country == "Southern French Territories" ~ "FRA",
+      country == "United States" ~ "USA",
+      country == "United States of America" ~ "USA"
     )
   )
 
