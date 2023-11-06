@@ -26,7 +26,12 @@ kelp_mpa_and_ecoregion <-
   readRDS(file = here("data", "output", "intersected_kelp_mpa_ecoregion.rds"))
 
 # Define palette colors --------------------------------------------------------
-pal <- c("gray90", "#1e699d", "#0d9948", "#faec27", "#eca929", "#dd3c40")
+pal <- c("None" = "gray90",
+         "Least"  = "#1e699d",
+         "Less"  = "#0d9948",
+         "Moderately"  = "#faec27",
+         "Heavily"  = "#eca929",
+         "Most"  = "#dd3c40")
 
 
 ## PROCESSING ##################################################################
@@ -86,8 +91,6 @@ cr_data <- kelp_mpa_and_ecoregion_data %>%
 ## VISUALIZE ###################################################################
 
 # X ----------------------------------------------------------------------------
-
-## EXPORT ######################################################################
 labs <- tibble(
   x = 1,
   y = c(0.1, 0.3) + 0.05,
@@ -195,24 +198,26 @@ alluvial_plot <- cr_data %>%
   theme_minimal() +
   theme(panel.grid = element_blank()) +
   scale_fill_manual(values = pal) +
-  theme(legend.position = "left") +
+  theme(legend.position = "left", legend.box.spacing = unit(x = 0, units = "mm")) +
   labs(y = "% Area with kelp",
        fill = "LFP score")
 
 props <- plot_grid(realm_plot,
                    country_plot,
                    ncol = 1, 
+                   align = "hv",
                    labels = "AUTO")
 
 p <- plot_grid(props,
                alluvial_plot,
                ncol = 2,
-               rel_widths = c(1, 2.5),
+               rel_widths = c(1, 4),
+               align = "h",
                labels = c("", "C"))
 
 # Export #######################################################################
 ggsave(plot = p,
        filename = here("img", "kelp_protection_realm_country.png"),
-       width = 10,
+       width = 12,
        height = 5)
 
