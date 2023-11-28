@@ -58,13 +58,6 @@ ssp126 <- read_csv(here("data", "output", "MHW", "ensmedian_ssp126_Cum_MHW_Int_1
                values_to = "SSP1-2.6") %>% 
   mutate(year = ymd(year))
 
-ssp126 <- read_csv(here("data", "output", "MHW", "ens10th_ssp126_Cum_MHW_Int_1982-2100.csv")) %>% 
-  rename(lon = x, lat = y) %>% 
-  pivot_longer(cols = c(3:121),
-               names_to = "year",
-               values_to = "SSP1-2.6") %>% 
-  mutate(year = ymd(year))
-
 ssp245 <- read_csv(here("data", "output", "MHW", "ensmedian_ssp245_Cum_MHW_Int_1982-2100.csv")) %>% 
   rename(lon = x, lat = y) %>% 
   pivot_longer(cols = c(3:121),
@@ -121,10 +114,11 @@ plot <- ggplot(data = data,
                fun.args = list(pct = 0.90),
                color = "transparent",
                alpha = 0.25) +
-  stat_summary(geom = "line", fun = "mean") +
+  stat_summary(geom = "line", fun = "median") +
   scale_color_manual(values = ssp_palette, aesthetics = c("fill", "color")) +
   guides(color = guide_legend(title.position = "top", title.hjust = 0.5,
-                              title = "SSP")) +
+                              title = "SSP"),
+         fill = "none") +
   theme(legend.position = "bottom") +
   labs(x = "Year",
        y = "Median Cumulative Marine Heatwave Intensity (°C days)")
@@ -145,17 +139,22 @@ ecoregion <- plot +
 ## EXPORT ######################################################################
 
 # X ----------------------------------------------------------------------------
+ggsave(plot = plot,
+       filename = here("img", "MHW_global.pdf"),
+       width = 12,
+       height = 6)
+
 ggsave(plot = realm,
-       filename = here("img", "MHW_realm.png"),
+       filename = here("img", "MHW_realm.pdf"),
        width = 12,
        height = 6)
 
 ggsave(plot = province,
-       filename = here("img", "MHW_province.png"),
+       filename = here("img", "MHW_province.pdf"),
        width = 12,
        height = 12)
 
 ggsave(plot = ecoregion,
-       filename = here("img", "MHW_ecoregion.png"),
+       filename = here("img", "MHW_ecoregion.pdf"),
        width = 12,
        height = 12)

@@ -31,7 +31,6 @@ raw_kelp <- st_read(here("data", "raw", "kelp", "07-27-23"))
 clean_kelp <- raw_kelp %>%
   st_zm(drop = T) %>%
   st_make_valid() %>%
-  filter(!st_is_empty(.)) %>%
   mutate(kelp_area = st_area(.)) %>%
   select(country = Country, kelp_area) %>%
   mutate(

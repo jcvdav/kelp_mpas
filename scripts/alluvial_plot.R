@@ -13,12 +13,14 @@
 ## SET UP ######################################################################
 
 # Load packages ----------------------------------------------------------------
-library(here)
-library(cowplot)
-library(ggrepel)
-library(sf)
-library(ggalluvial)
-library(tidyverse)
+pacman::p_load(
+  here,
+  cowplot,
+  ggrepel,
+  sf,
+  ggalluvial,
+  tidyverse 
+)
 
 
 # Load data --------------------------------------------------------------------
@@ -39,37 +41,35 @@ pal <- c("None" = "gray90",
 # format data ------------------------------------------------------------------
 kelp_mpa_and_ecoregion_data <- kelp_mpa_and_ecoregion %>% 
   st_drop_geometry() %>%
-  replace_na(replace = list(lfp_cat = "None",
-                            lfp_group = "Outside MPA")) %>%
   mutate(lfp_cat = fct_relevel(lfp_cat, c("None", "Least", "Less", "Moderately", "Heavily", "Most")),
-         lfp_group = fct_relevel(lfp_group, c("Outside MPA", "Less", "Moderately", "Highly")),
+         lfp_group = fct_relevel(lfp_group, c("None", "Less", "Moderately", "Highly")),
          realm = str_replace_all(realm, " ", "\n"))
 
 # Build data at the realm-level ------------------------------------------------
 realm_data <- kelp_mpa_and_ecoregion_data %>%
   group_by(realm, lfp_cat) %>%
-  summarize(kelp_area = sum(kelp_area)) %>%
+  summarize(kelp_area_km2 = sum(kelp_area_km2)) %>%
   ungroup() %>%
   group_by(realm) %>%
-  mutate(pct_area = kelp_area / sum(kelp_area)) %>%
+  mutate(pct_area = kelp_area_km2 / sum(kelp_area_km2)) %>%
   ungroup()
 
 # Build data at the country-level
 country_data <- kelp_mpa_and_ecoregion_data %>%
   group_by(country, lfp_cat) %>%
-  summarize(kelp_area = sum(kelp_area)) %>%
+  summarize(kelp_area_km2 = sum(kelp_area_km2)) %>%
   ungroup() %>%
   group_by(country) %>%
-  mutate(pct_area = kelp_area / sum(kelp_area)) %>%
+  mutate(pct_area = kelp_area_km2 / sum(kelp_area_km2)) %>%
   ungroup()
 
 cr_data <- kelp_mpa_and_ecoregion_data %>%
   group_by(ecoregion,
            province,
            realm, country, lfp_group, lfp_cat) %>%
-  summarize(kelp_area = sum(kelp_area), .groups = "drop") %>%
+  summarize(kelp_area_km2 = sum(kelp_area_km2), .groups = "drop") %>%
   ungroup() %>%
-  mutate(pct_area = kelp_area / sum(kelp_area)) %>%
+  mutate(pct_area = kelp_area_km2 / sum(kelp_area_km2)) %>%
   ungroup() %>%
   group_by(ecoregion) %>%
   mutate(pct_eco = sum(pct_area)) %>%
@@ -184,7 +184,8 @@ alluvial_plot <- cr_data %>%
              y = pct_area)) +
   geom_alluvium(aes(fill = lfp_cat),
                 color = "black", size = 0.1, alpha = 1) +
-  geom_stratum(width = 0.1, size = 0.3) +
+  geom_stratum(width = 0.3,
+               size = 0.3) +
   geom_text(stat = "stratum",
             aes(label = after_stat(stratum)),
             size = 2) +
@@ -217,7 +218,16 @@ p <- plot_grid(props,
 
 # Export #######################################################################
 ggsave(plot = p,
-       filename = here("img", "kelp_protection_realm_country.png"),
+       filename = here("img", "kelp_protection_realm_country.pdf"),
        width = 12,
-       height = 5)
+       height = 8)
 
+
+write_csv(realm_data,
+          file = "protection_status_by_realm.csv")
+
+write_csv(country_data,
+          file = "protection_status_by_country.csv")
+
+write_csv(cr_data,
+          file = "protection_status_by_country_realm_province_ecoregion.csv")
