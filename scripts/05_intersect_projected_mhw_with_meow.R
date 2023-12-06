@@ -51,39 +51,44 @@ ggplot2::theme_update(
 meow <- st_read(here("data", "raw", "clean_meow.gpkg")) %>% 
   select(-a)
 
-ssp126 <- read_csv(here("data", "output", "MHW", "ensmedian_ssp126_Cum_MHW_Int_1982-2100.csv")) %>% 
+ssp126 <- read_csv(here("data", "output", "MHW", "ssp126_median.csv")) %>% 
   rename(lon = x, lat = y) %>% 
   pivot_longer(cols = c(3:121),
                names_to = "year",
                values_to = "SSP1-2.6") %>% 
-  mutate(year = ymd(year))
+  mutate(year = as.numeric(year))
 
-ssp245 <- read_csv(here("data", "output", "MHW", "ensmedian_ssp245_Cum_MHW_Int_1982-2100.csv")) %>% 
+ssp245 <- read_csv(here("data", "output", "MHW", "ssp245_median.csv")) %>% 
   rename(lon = x, lat = y) %>% 
   pivot_longer(cols = c(3:121),
                names_to = "year",
                values_to = "SSP2-4.5") %>% 
-  mutate(year = ymd(year))
+  mutate(year = as.numeric(year))
 
-ssp585 <- read_csv(here("data", "output", "MHW", "ensmedian_ssp585_Cum_MHW_Int_1982-2100.csv")) %>% 
+ssp585 <- read_csv(here("data", "output", "MHW", "ssp585_median.csv")) %>% 
   rename(lon = x, lat = y) %>% 
   pivot_longer(cols = c(3:121),
                names_to = "year",
                values_to = "SSP5-8.5") %>% 
-  mutate(year = ymd(year))
+  mutate(year = as.numeric(year))
 
 ## PROCESSING ##################################################################
 
-# X ----------------------------------------------------------------------------
+# Get unique combinations-------------------------------------------------------
+# This means I do a single join, instead of n_years * n_scenarios
 grid <- ssp126 %>% 
   select(lon, lat) %>% 
   distinct() %>% 
   st_as_sf(coords = c("lon", "lat"),
            crs = 4326) %>% 
   st_join(meow) %>% 
-  bind_cols(st_coordinates(.)) %>% 
-  st_drop_geometry() %>% 
-  select(lon = X, lat = Y, everything())
+  mutate(realm = fct_relevel(realm, 
+                             "Arctic",
+                             "Temperate Northern Pacific",
+                             "Temperate South America",
+                             "Southern Ocean",
+                             "Temperate Southern Africa",
+                             "Temperate Australasia"))
 
 # X ----------------------------------------------------------------------------
 data <- ssp126 %>% 
@@ -92,8 +97,12 @@ data <- ssp126 %>%
   pivot_longer(cols = 4:6,
                names_to = "ssp",
                values_to = "MHW") %>% 
-  left_join(grid, by = c("lat", "lon"))
+  left_join(grid %>% 
+              bind_cols(st_coordinates(.)) %>% 
+              st_drop_geometry() %>% 
+              select(lon = X, lat = Y, everything()), by = c("lat", "lon"))   # add ecoregion info
 
+# Define a function to calculate percentiles
 pct_range <- function(x, pct = 0.95) {
   l_lim <- (1 - pct) / 2
   u_lim <- pct + l_lim
@@ -106,7 +115,7 @@ pct_range <- function(x, pct = 0.95) {
 
 ## VISUALIZE ###################################################################
 
-# X ----------------------------------------------------------------------------
+# Build the main plot ----------------------------------------------------------
 plot <- ggplot(data = data,
        mapping = aes(x = year, y = MHW, color = ssp, fill = ssp, group = ssp)) +
   stat_summary(geom = "ribbon",
@@ -123,9 +132,10 @@ plot <- ggplot(data = data,
   labs(x = "Year",
        y = "Median Cumulative Marine Heatwave Intensity (°C days)")
 
+# And the sub-plots
 realm <- plot + 
   facet_wrap(~realm,
-             ncol = 3)
+             ncol = 3, dir = "v")
 
 province <- plot + 
   facet_wrap(~province,
@@ -135,6 +145,50 @@ ecoregion <- plot +
   facet_wrap(~ecoregion,
              ncol = 5)
 
+# MAP
+realms <- st_read(here("data", "raw", "clean_meow.gpkg")) %>% 
+  filter(realm %in% unique(data$realm)) %>% 
+  group_by(realm) %>% 
+  summarise(a = 1, .groups = "drop") %>% 
+  select(realm) %>% 
+  mutate(realm = fct_relevel(realm, 
+                             "Arctic",
+                             "Temperate Northern Pacific",
+                             "Temperate South America",
+                             "Southern Ocean",
+                             "Temperate Southern Africa",
+                             "Temperate Australasia"))
+
+world <- rnaturalearth::ne_countries(returnclass = "sf")
+
+map <- ggplot() +
+  geom_sf(data = realms,
+          mapping = aes(fill = realm),
+          color = "black",
+          size = 0.1,
+          alpha = 0.75) +
+  geom_sf(data = grid,
+          color = "black",
+          size = 1) +
+  geom_sf(data = world,
+          color = "black",
+          fill = "gray",
+          linewidth = 0.5) +
+  geom_sf(data = world,
+          color = "gray",
+          fill = "gray",
+          linewidth = 0.1) +
+  scale_fill_brewer(palette = "Set3") +
+  guides(fill = guide_legend(title.position = "top",
+                             title.hjust = 0.5,
+                             title = "Realm")) +
+  theme_void() +
+  theme(legend.position = "bottom")
+
+fig <- plot_grid(map, realm,
+                 ncol = 1,
+                 labels = "auto")
+
 
 ## EXPORT ######################################################################
 
@@ -143,6 +197,11 @@ ggsave(plot = plot,
        filename = here("img", "MHW_global.pdf"),
        width = 12,
        height = 6)
+
+ggsave(plot = fig,
+       filename = here("img", "Map_and_mhw_by_realm.pdf"),
+       width = 8,
+       height = 10)
 
 ggsave(plot = realm,
        filename = here("img", "MHW_realm.pdf"),

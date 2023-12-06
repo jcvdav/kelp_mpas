@@ -90,7 +90,8 @@ fast_intersect <- function(x, y) {
     replace_na(replace = list(lfp_cat = "None",
                               lfp_group = "None",
                               lfp = 0)) %>% 
-    select(country, x_id, y_id, mpa_id, lfp, lfp_cat, lfp_group)
+    select(country, x_id, y_id, mpa_id, lfp, lfp_cat, lfp_group) %>% 
+    st_make_valid()
   
   return(combined)
 }
@@ -101,14 +102,10 @@ fast_intersect <- function(x, y) {
 nested_kelp <- kelp %>%
   group_by(country) %>% 
   group_split()
-# nest() %>%
-# rename(k = data)
 
 nested_mpas <- mpas %>%
   group_by(country) %>% 
   group_split()
-# nest() %>%
-# rename(m = data)
 
 # Begin intersection -----------------------------------------------------------
 future::plan("multisession",
@@ -121,11 +118,6 @@ beepr::beep(2)
 
 plan(sequential)
 
-# kelp_and_mpa_unnested <- kelp_and_mpa %>% 
-#   select(country, data) %>% 
-#   unnest(data) %>% 
-#   ungroup() %>% 
-#   st_sf() 
 
 sf_use_s2(FALSE) # Turn off to intersect faster
 intersect_kelp_mpa_and_ecoregion <- st_intersection(kelp_and_mpa, meow)

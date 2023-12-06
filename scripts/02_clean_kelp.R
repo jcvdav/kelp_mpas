@@ -22,7 +22,8 @@ pacman::p_load(
 # sf_use_s2(FALSE)
 
 # Load data --------------------------------------------------------------------
-raw_kelp <- st_read(here("data", "raw", "kelp", "07-27-23"))
+raw_kelp <- st_read(here("data", "raw", "kelp", "12-03-23"))
+st_crs(x = raw_kelp) <- "EPSG:4326"
 
 ## PROCESSING ##################################################################
 
@@ -30,9 +31,9 @@ raw_kelp <- st_read(here("data", "raw", "kelp", "07-27-23"))
 
 clean_kelp <- raw_kelp %>%
   st_zm(drop = T) %>%
-  st_make_valid() %>%
-  mutate(kelp_area = st_area(.)) %>%
-  select(country = Country, kelp_area) %>%
+  # st_make_valid() %>%
+  # mutate(kelp_area = st_area(.)) %>%
+  select(country = Country) %>%
   mutate(
     country = case_when(
       country == "Argentina" ~ "ARG",

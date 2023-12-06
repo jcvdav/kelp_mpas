@@ -224,10 +224,10 @@ ggsave(plot = p,
 
 
 write_csv(realm_data,
-          file = "protection_status_by_realm.csv")
+          file = here("data", "output", "protection_status_by_realm.csv"))
 
 write_csv(country_data,
-          file = "protection_status_by_country.csv")
+          file = here("data", "output", "protection_status_by_country.csv"))
 
 write_csv(cr_data,
-          file = "protection_status_by_country_realm_province_ecoregion.csv")
+          file = here("data", "output", "protection_status_by_country_realm_province_ecoregion.csv"))

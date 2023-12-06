@@ -22,8 +22,8 @@ pacman::p_load(
 
 # Read files -------------------------------------------------------------------
 
-raw_mpas <- st_read(dsn = here("data", "raw", "mpas", "Final_MPAs_07-23"),
-                    layer = "MPA_All_Final_07-23")
+raw_mpas <- st_read(dsn = here("data", "raw", "mpas", "MPA_Final_12-3-23"),
+                    layer = "MPA_All_Final_12-23")
 
 ## PROCESSING ##################################################################
 
