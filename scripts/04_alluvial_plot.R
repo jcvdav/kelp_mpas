@@ -43,7 +43,8 @@ kelp_mpa_and_ecoregion_data <- kelp_mpa_and_ecoregion %>%
   st_drop_geometry() %>%
   mutate(lfp_cat = fct_relevel(lfp_cat, c("None", "Least", "Less", "Moderately", "Heavily", "Most")),
          lfp_group = fct_relevel(lfp_group, c("None", "Less", "Moderately", "Highly")),
-         realm = str_replace_all(realm, " ", "\n"))
+         realm = str_replace_all(realm, " ", "\n"),
+         kelp_area_km2 = as.numeric(kelp_area_km2))
 
 # Build data at the realm-level ------------------------------------------------
 realm_data <- kelp_mpa_and_ecoregion_data %>%
