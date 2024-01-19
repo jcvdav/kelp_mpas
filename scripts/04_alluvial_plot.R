@@ -55,6 +55,15 @@ realm_data <- kelp_mpa_and_ecoregion_data %>%
   mutate(pct_area = kelp_area_km2 / sum(kelp_area_km2)) %>%
   ungroup()
 
+# Build data at the ecoregion-level
+ecoregion_data <- kelp_mpa_and_ecoregion_data %>%
+  group_by(ecoregion, lfp_cat) %>%
+  summarize(kelp_area_km2 = sum(kelp_area_km2)) %>%
+  ungroup() %>%
+  group_by(ecoregion) %>%
+  mutate(pct_area = kelp_area_km2 / sum(kelp_area_km2)) %>%
+  ungroup()
+
 # Build data at the country-level
 country_data <- kelp_mpa_and_ecoregion_data %>%
   group_by(country, lfp_cat) %>%
@@ -226,6 +235,9 @@ ggsave(plot = p,
 
 write_csv(realm_data,
           file = here("data", "output", "protection_status_by_realm.csv"))
+
+write_csv(ecoregion_data,
+          file = here("data", "output", "protection_status_by_ecoregion.csv"))
 
 write_csv(country_data,
           file = here("data", "output", "protection_status_by_country.csv"))

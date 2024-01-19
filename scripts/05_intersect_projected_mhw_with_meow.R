@@ -13,9 +13,12 @@
 ## SET UP ######################################################################
 
 # Load packages ----------------------------------------------------------------
-library(here)
-library(sf)
-library(tidyverse)
+pacman::p_load(
+  here,
+  sf,
+  cowplot,
+  tidyverse
+)
 
 # From https://www.ipcc.ch/site/assets/uploads/2022/09/IPCC_AR6_WGI_VisualStyleGuide_2022.pdf
 # Page 9
@@ -51,21 +54,21 @@ ggplot2::theme_update(
 meow <- st_read(here("data", "raw", "clean_meow.gpkg")) %>% 
   select(-a)
 
-ssp126 <- read_csv(here("data", "output", "MHW", "ssp126_median.csv")) %>% 
+ssp126 <- read_csv(here("data", "output", "MHW", "ssp126_median_01_24.csv")) %>% 
   rename(lon = x, lat = y) %>% 
   pivot_longer(cols = c(3:121),
                names_to = "year",
                values_to = "SSP1-2.6") %>% 
   mutate(year = as.numeric(year))
 
-ssp245 <- read_csv(here("data", "output", "MHW", "ssp245_median.csv")) %>% 
+ssp245 <- read_csv(here("data", "output", "MHW", "ssp245_median_01_24.csv")) %>% 
   rename(lon = x, lat = y) %>% 
   pivot_longer(cols = c(3:121),
                names_to = "year",
                values_to = "SSP2-4.5") %>% 
   mutate(year = as.numeric(year))
 
-ssp585 <- read_csv(here("data", "output", "MHW", "ssp585_median.csv")) %>% 
+ssp585 <- read_csv(here("data", "output", "MHW", "ssp585_median_01_24.csv")) %>% 
   rename(lon = x, lat = y) %>% 
   pivot_longer(cols = c(3:121),
                names_to = "year",
@@ -146,11 +149,11 @@ ecoregion <- plot +
              ncol = 5)
 
 # MAP
-realms <- st_read(here("data", "raw", "clean_meow.gpkg")) %>% 
-  filter(realm %in% unique(data$realm)) %>% 
-  group_by(realm) %>% 
+realms <- meow %>% 
+  filter(ecoregion %in% unique(data$ecoregion)) %>% 
+  group_by(realm, ecoregion) %>% 
   summarise(a = 1, .groups = "drop") %>% 
-  select(realm) %>% 
+  select(realm, ecoregion) %>% 
   mutate(realm = fct_relevel(realm, 
                              "Arctic",
                              "Temperate Northern Pacific",
