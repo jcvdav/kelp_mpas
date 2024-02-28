@@ -103,7 +103,14 @@ data <- ssp126 %>%
   left_join(grid %>% 
               bind_cols(st_coordinates(.)) %>% 
               st_drop_geometry() %>% 
-              select(lon = X, lat = Y, everything()), by = c("lat", "lon"))   # add ecoregion info
+              select(lon = X, lat = Y, everything()), by = c("lat", "lon")) %>% # add ecoregion info
+  # From Nur's email. These pixels need to be filtered out. They don't actually contain kelp.
+  # This is just a hot-fix, they should ultimately be removed from source before going to
+  # Dave's analysis. For future reference, without this filter, the original data.frame
+  # has 814,674 and using hte filter leaves it at 772,191
+  filter(!(lon > 21.95 & lon < 33.5 & lat > -38 & lat < -25)) %>%
+  filter(!(lon > 149 & lon < 151 & lat > -37.5)) %>%
+  filter(!(lon > 169 & lon < 179 & lat > -40.5))
 
 # Define a function to calculate percentiles
 pct_range <- function(x, pct = 0.95) {
@@ -126,7 +133,8 @@ plot <- ggplot(data = data,
                fun.args = list(pct = 0.90),
                color = "transparent",
                alpha = 0.25) +
-  stat_summary(geom = "line", fun = "median") +
+  stat_summary(geom = "line", fun = "mean") +
+  stat_summary(geom = "line", fun = "median", linetype = "dashed") +
   scale_color_manual(values = ssp_palette, aesthetics = c("fill", "color")) +
   guides(color = guide_legend(title.position = "top", title.hjust = 0.5,
                               title = "SSP"),

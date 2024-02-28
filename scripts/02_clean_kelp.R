@@ -22,7 +22,7 @@ pacman::p_load(
 # sf_use_s2(FALSE)
 
 # Load data --------------------------------------------------------------------
-raw_kelp <- st_read(here("data", "raw", "kelp", "12-03-23"))
+raw_kelp <- st_read(here("data", "raw", "kelp", "06-02-24"))
 st_crs(x = raw_kelp) <- "EPSG:4326"
 
 ## PROCESSING ##################################################################
