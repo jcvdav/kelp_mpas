@@ -142,7 +142,7 @@ plot <- ggplot(data = data,
          fill = "none") +
   theme(legend.position = "bottom") +
   labs(x = "Year",
-       y = "Median Cumulative Marine Heatwave Intensity (°C days)")
+       y = "Cumulative Marine Heatwave Intensity (°C days)")
 
 # And the sub-plots
 realm <- plot + 
@@ -229,3 +229,4 @@ ggsave(plot = ecoregion,
        filename = here("img", "MHW_ecoregion.pdf"),
        width = 12,
        height = 12)
+
