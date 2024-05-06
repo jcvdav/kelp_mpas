@@ -24,7 +24,8 @@ pacman::p_load(
 # Page 9
 ssp_palette <- c("SSP1-2.6" = "#173c66",
                  "SSP2-4.5" = "#f79420", 
-                 "SSP5-8.5" = "#951b1e")
+                 "SSP5-8.5" = "#951b1e",
+                 "Historic" = "black")
 
 # Set a global theme -----------------------------------------------------------
 ggplot2::theme_set(
@@ -54,26 +55,39 @@ ggplot2::theme_update(
 meow <- st_read(here("data", "raw", "clean_meow.gpkg")) %>% 
   select(-a)
 
+hist <- read_csv(here("data", "output", "MHW", "OISST_Median_March.csv")) %>% 
+  select(-1) %>% 
+  rename(lon = x, lat = y) %>% 
+  pivot_longer(cols = c(3:42),
+               names_to = "year",
+               values_to = "MHW") %>% 
+  mutate(year = as.numeric(str_extract_all(year, "[:digit:]+")),
+         ssp = "Historic")
+  
+
 ssp126 <- read_csv(here("data", "output", "MHW", "ssp126_median_01_24.csv")) %>% 
   rename(lon = x, lat = y) %>% 
   pivot_longer(cols = c(3:121),
                names_to = "year",
                values_to = "SSP1-2.6") %>% 
-  mutate(year = as.numeric(year))
+  mutate(year = as.numeric(year)) %>% 
+  filter(year >= 2021)
 
 ssp245 <- read_csv(here("data", "output", "MHW", "ssp245_median_01_24.csv")) %>% 
   rename(lon = x, lat = y) %>% 
   pivot_longer(cols = c(3:121),
                names_to = "year",
                values_to = "SSP2-4.5") %>% 
-  mutate(year = as.numeric(year))
+  mutate(year = as.numeric(year)) %>% 
+  filter(year >= 2021)
 
 ssp585 <- read_csv(here("data", "output", "MHW", "ssp585_median_01_24.csv")) %>% 
   rename(lon = x, lat = y) %>% 
   pivot_longer(cols = c(3:121),
                names_to = "year",
                values_to = "SSP5-8.5") %>% 
-  mutate(year = as.numeric(year))
+  mutate(year = as.numeric(year)) %>% 
+  filter(year >= 2021)
 
 ## PROCESSING ##################################################################
 
@@ -107,6 +121,8 @@ data <- ssp126 %>%
   pivot_longer(cols = 4:6,
                names_to = "ssp",
                values_to = "MHW") %>% 
+  bind_rows(hist) %>% 
+  arrange(year, lat, lon) %>% 
   inner_join(grid %>% 
                bind_cols(st_coordinates(.)) %>% 
                st_drop_geometry() %>% 
