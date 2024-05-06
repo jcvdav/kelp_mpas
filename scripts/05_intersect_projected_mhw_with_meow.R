@@ -151,7 +151,7 @@ plot <- ggplot(data = data,
                color = "transparent",
                alpha = 0.25) +
   stat_summary(geom = "line", fun = "mean") +
-  stat_summary(geom = "line", fun = "median", linetype = "dashed") +
+  # stat_summary(geom = "line", fun = "median", linetype = "dashed") +
   scale_color_manual(values = ssp_palette, aesthetics = c("fill", "color")) +
   guides(color = guide_legend(title.position = "top", title.hjust = 0.5,
                               title = "SSP"),
