@@ -6,7 +6,7 @@
 # juancvd@stanford.edu
 # date
 #
-# Description
+# Find overlaps
 #
 ################################################################################
 
@@ -15,39 +15,51 @@
 # Load packages ----------------------------------------------------------------
 pacman::p_load(
   here,
+  janitor,
   sf,
   tidyverse
 )
 
-# sf_use_s2(FALSE)
+# Read files -------------------------------------------------------------------
 
-# Load data --------------------------------------------------------------------
-raw_kelp <- st_read(here("data", "raw", "kelp", "07-27-23"))
+raw_mpas <- st_read(dsn = here("data", "raw", "mpas", "MPA_Final_12-3-23"),
+                    layer = "MPA_All_Final_12-23")
 
 ## PROCESSING ##################################################################
 
-# X ----------------------------------------------------------------------------
-
-clean_kelp <- raw_kelp %>%
-  st_zm(drop = T) %>%
+# Clean data -------------------------------------------------------------------
+clean_mpas <- raw_mpas %>%
+  st_zm(drop = T) %>% 
+  clean_names() %>% 
+  select(mpa_id, country, lfp = new_pro_se) %>%
+  mutate(
+    lfp = as.numeric(lfp),
+    lfp_cat = case_when(lfp == 1 ~ "Least",
+                        lfp == 2 ~ "Less",
+                        lfp == 3 ~ "Moderately",
+                        lfp == 4 ~ "Heavily",
+                        lfp == 5 ~ "Most"),
+    lfp_group = case_when(lfp <= 2 ~ "Less",
+                          lfp == 3 ~ "Moderately",
+                          lfp >= 4 ~ "Highly")) %>%
+  arrange(desc(lfp)) %>%
   st_make_valid() %>%
-  mutate(kelp_area = st_area(.)) %>%
-  select(country = Country, kelp_area) %>%
+  st_difference() %>%
+  st_make_valid() %>%
   mutate(
     country = case_when(
       country == "Argentina" ~ "ARG",
       country == "Australia" ~ "AUS",
-      country == "British Overseas Territories" ~ "GBR",
-      country == "Canda" ~ "CAN",
+      country == "Canada" ~ "CAN",
       country == "Chile" ~ "CHL",
+      country == "France" ~ "FRA",
       country == "Mexico" ~ "MEX",
       country == "Namibia" ~ "NAM",
       country == "New Zealand" ~ "NZL",
       country == "Peru" ~ "PER",
       country == "South Africa" ~ "ZAF",
-      country == "Southern French Territories" ~ "FRA",
-      country == "United States" ~ "USA",
-      country == "United States of America" ~ "USA"
+      country == "United Kingdom" ~ "GBR",
+      country == "United States" ~ "USA"
     )
   )
 
@@ -55,7 +67,7 @@ clean_kelp <- raw_kelp %>%
 
 # X ----------------------------------------------------------------------------
 st_write(
-  clean_kelp,
-  dsn = here("data", "processed", "clean_kelp.gpkg"),
+  obj = clean_mpas,
+  dsn = here("data", "processed", "clean_mpas.gpkg"),
   delete_dsn = T
 )

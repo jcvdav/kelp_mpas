@@ -28,12 +28,25 @@ kelp_mpa_and_ecoregion <-
   readRDS(file = here("data", "output", "intersected_kelp_mpa_ecoregion.rds"))
 
 # Define palette colors --------------------------------------------------------
-pal <- c("None" = "gray90",
-         "Least"  = "#1e699d",
-         "Less"  = "#0d9948",
-         "Moderately"  = "#faec27",
-         "Heavily"  = "#eca929",
-         "Most"  = "#dd3c40")
+# Old palette, just in case we want to revert to Protected Seas' palette
+lfp_pal <- c(
+  "None" = "gray90",
+  "Least"  = "#1e699d",
+  "Less"  = "#0d9948",
+  "Moderately"  = "#faec27",
+  "Heavily"  = "#eca929",
+  "Most"  = "#dd3c40")
+
+# Palette
+pal <- c(
+   "Most" = "#002673",
+   "Heavily" = "#0084A8",
+   "Moderately" = "#73B2FF",
+   "Less" = "#EC846E",
+   "Least" = "#CA0220",
+   "None" = "gray90"
+)
+
 
 
 ## PROCESSING ##################################################################
@@ -43,7 +56,8 @@ kelp_mpa_and_ecoregion_data <- kelp_mpa_and_ecoregion %>%
   st_drop_geometry() %>%
   mutate(lfp_cat = fct_relevel(lfp_cat, c("None", "Least", "Less", "Moderately", "Heavily", "Most")),
          lfp_group = fct_relevel(lfp_group, c("None", "Less", "Moderately", "Highly")),
-         realm = str_replace_all(realm, " ", "\n"))
+         realm = str_replace_all(realm, " ", "\n"),
+         kelp_area_km2 = as.numeric(kelp_area_km2))
 
 # Build data at the realm-level ------------------------------------------------
 realm_data <- kelp_mpa_and_ecoregion_data %>%
@@ -51,6 +65,15 @@ realm_data <- kelp_mpa_and_ecoregion_data %>%
   summarize(kelp_area_km2 = sum(kelp_area_km2)) %>%
   ungroup() %>%
   group_by(realm) %>%
+  mutate(pct_area = kelp_area_km2 / sum(kelp_area_km2)) %>%
+  ungroup()
+
+# Build data at the ecoregion-level
+ecoregion_data <- kelp_mpa_and_ecoregion_data %>%
+  group_by(ecoregion, lfp_cat) %>%
+  summarize(kelp_area_km2 = sum(kelp_area_km2)) %>%
+  ungroup() %>%
+  group_by(ecoregion) %>%
   mutate(pct_area = kelp_area_km2 / sum(kelp_area_km2)) %>%
   ungroup()
 
@@ -100,33 +123,36 @@ labs <- tibble(
 realm_plot <- ggplot(data = realm_data) +
   geom_col(aes(x = realm, y = pct_area, fill = lfp_cat),
            color = "black",
-           size = 0.1) +
-  geom_hline(yintercept = 0, size = 0.3) +
+           linewidth = 0.1) +
+  geom_hline(yintercept = 0,
+             linewidth = 0.3) +
   geom_hline(yintercept = 0.1,
              linetype = "dotted",
-             size = 0.3) +
+             linewidth = 0.3) +
   geom_hline(yintercept = 0.3,
              linetype = "dashed",
-             size = 0.3) +
-  geom_hline(yintercept = 1, size = 0.3) +
+             linewidth = 0.3) +
+  geom_hline(yintercept = 1,
+             linewidth = 0.3) +
   geom_text(data = realm_data %>%
               select(realm) %>%
               distinct(),
-            mapping = aes(x = realm, y = 0.75, label = realm),
+            mapping = aes(x = realm,
+                          y = 0.75,
+                          label = realm),
             inherit.aes = F,
-            size = 2
-            ) +
+            size = 2) +
   scale_x_discrete(labels = NULL) +
   scale_y_continuous(limits = c(-0.25, NA),
                      expand = c(0, 0),
                      labels = NULL) +
   scale_fill_manual(values = pal) +
-  geom_text(
-    data = labs,
-    aes(x = x, y = y, label = label),
-    size = 2,
-    inherit.aes = F
-  ) +
+  geom_text(data = labs,
+            mapping = aes(x = x,
+                          y = y,
+                          label = label),
+            size = 2,
+            inherit.aes = F) +
   coord_polar() +
   theme_void() +
   theme(legend.position = "None") +
@@ -135,35 +161,38 @@ realm_plot <- ggplot(data = realm_data) +
        fill = "Fishing restrictions")
 
 country_plot <- ggplot(data = country_data) +
-  geom_col(aes(x = country, y = pct_area, fill = lfp_cat),
+  geom_col(aes(x = country,
+               y = pct_area,
+               fill = lfp_cat),
            color = "black",
-           size = 0.1) +
-  geom_hline(yintercept = 0, size = 0.3) +
+           linewidth = 0.1) +
+  geom_hline(yintercept = 0,
+             linewidth = 0.3) +
   geom_hline(yintercept = 0.1,
              linetype = "dotted",
-             size = 0.3) +
+             linewidth = 0.3) +
   geom_hline(yintercept = 0.3,
              linetype = "dashed",
-             size = 0.3) +
-  geom_hline(yintercept = 1, size = 0.3) +
+             linewidth = 0.3) +
+  geom_hline(yintercept = 1,
+             linewidth = 0.3) +
   geom_text(data = country_data %>%
               select(country) %>%
               distinct(),
-            mapping = aes(x = country, y = 0.75, label = country),
+            mapping = aes(x = country,
+                          y = 0.75,
+                          label = country),
             inherit.aes = F,
-            size = 2
-  ) +
+            size = 2) +
   scale_x_discrete(labels = NULL) +
   scale_y_continuous(limits = c(-0.25, NA),
                      expand = c(0, 0),
                      labels = NULL) +
   scale_fill_manual(values = pal) +
-  geom_text(
-    data = labs,
-    aes(x = x, y = y, label = label),
-    size = 2,
-    inherit.aes = F
-  ) +
+  geom_text(data = labs,
+            aes(x = x, y = y, label = label),
+            size = 2,
+            inherit.aes = F) +
   coord_polar() +
   theme_void() +
   theme(axis.text = element_text(size = 7),
@@ -183,9 +212,9 @@ alluvial_plot <- cr_data %>%
              axis3 = realm,
              y = pct_area)) +
   geom_alluvium(aes(fill = lfp_cat),
-                color = "black", size = 0.1, alpha = 1) +
+                color = "black", linewidth = 0.1, alpha = 1) +
   geom_stratum(width = 0.3,
-               size = 0.3) +
+               linewidth = 0.3) +
   geom_text(stat = "stratum",
             aes(label = after_stat(stratum)),
             size = 2) +
@@ -199,35 +228,44 @@ alluvial_plot <- cr_data %>%
   theme_minimal() +
   theme(panel.grid = element_blank()) +
   scale_fill_manual(values = pal) +
-  theme(legend.position = "left", legend.box.spacing = unit(x = 0, units = "mm")) +
+  theme(legend.position = "left",
+        legend.box.spacing = unit(x = 0, units = "mm")) +
   labs(y = "% Area with kelp",
        fill = "LFP score")
 
+leg <- get_legend(alluvial_plot)
+
 props <- plot_grid(realm_plot,
                    country_plot,
+                   leg,
                    ncol = 1, 
-                   align = "hv",
-                   labels = "AUTO")
+                   rel_heights = c(1.5, 1.5, 1),
+                   labels = c("b", "c"),
+                   align = "hv")
 
-p <- plot_grid(props,
-               alluvial_plot,
+p <- plot_grid(alluvial_plot + 
+                 theme(legend.position = "None"),
+               props,
+               labels = c("a"),
                ncol = 2,
-               rel_widths = c(1, 4),
-               align = "h",
-               labels = c("", "C"))
+               rel_widths = c(4, 1),
+               align = "h")
 
 # Export #######################################################################
 ggsave(plot = p,
        filename = here("img", "kelp_protection_realm_country.pdf"),
        width = 12,
-       height = 8)
+       height = 7)
 
 
 write_csv(realm_data,
-          file = "protection_status_by_realm.csv")
+          file = here("data", "output", "protection_status_by_realm.csv"))
+
+write_csv(ecoregion_data,
+          file = here("data", "output", "protection_status_by_ecoregion.csv"))
 
 write_csv(country_data,
-          file = "protection_status_by_country.csv")
+          file = here("data", "output", "protection_status_by_country.csv"))
 
 write_csv(cr_data,
-          file = "protection_status_by_country_realm_province_ecoregion.csv")
+          file = here("data", "output", "protection_status_by_country_realm_province_ecoregion.csv"))

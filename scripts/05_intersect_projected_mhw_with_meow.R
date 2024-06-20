@@ -13,15 +13,19 @@
 ## SET UP ######################################################################
 
 # Load packages ----------------------------------------------------------------
-library(here)
-library(sf)
-library(tidyverse)
+pacman::p_load(
+  here,
+  sf,
+  cowplot,
+  tidyverse
+)
 
 # From https://www.ipcc.ch/site/assets/uploads/2022/09/IPCC_AR6_WGI_VisualStyleGuide_2022.pdf
 # Page 9
 ssp_palette <- c("SSP1-2.6" = "#173c66",
                  "SSP2-4.5" = "#f79420", 
-                 "SSP5-8.5" = "#951b1e")
+                 "SSP5-8.5" = "#951b1e",
+                 "Historic" = "black")
 
 # Set a global theme -----------------------------------------------------------
 ggplot2::theme_set(
@@ -51,39 +55,64 @@ ggplot2::theme_update(
 meow <- st_read(here("data", "raw", "clean_meow.gpkg")) %>% 
   select(-a)
 
-ssp126 <- read_csv(here("data", "output", "MHW", "ensmedian_ssp126_Cum_MHW_Int_1982-2100.csv")) %>% 
+hist <- read_csv(here("data", "output", "MHW", "OISST_Median_March.csv")) %>% 
+  select(-1) %>% 
+  rename(lon = x, lat = y) %>% 
+  pivot_longer(cols = c(3:42),
+               names_to = "year",
+               values_to = "MHW") %>% 
+  mutate(year = as.numeric(str_extract_all(year, "[:digit:]+")),
+         ssp = "Historic")
+  
+
+ssp126 <- read_csv(here("data", "output", "MHW", "ssp126_median_01_24.csv")) %>% 
   rename(lon = x, lat = y) %>% 
   pivot_longer(cols = c(3:121),
                names_to = "year",
                values_to = "SSP1-2.6") %>% 
-  mutate(year = ymd(year))
+  mutate(year = as.numeric(year)) %>% 
+  filter(year >= 2021)
 
-ssp245 <- read_csv(here("data", "output", "MHW", "ensmedian_ssp245_Cum_MHW_Int_1982-2100.csv")) %>% 
+ssp245 <- read_csv(here("data", "output", "MHW", "ssp245_median_01_24.csv")) %>% 
   rename(lon = x, lat = y) %>% 
   pivot_longer(cols = c(3:121),
                names_to = "year",
                values_to = "SSP2-4.5") %>% 
-  mutate(year = ymd(year))
+  mutate(year = as.numeric(year)) %>% 
+  filter(year >= 2021)
 
-ssp585 <- read_csv(here("data", "output", "MHW", "ensmedian_ssp585_Cum_MHW_Int_1982-2100.csv")) %>% 
+ssp585 <- read_csv(here("data", "output", "MHW", "ssp585_median_01_24.csv")) %>% 
   rename(lon = x, lat = y) %>% 
   pivot_longer(cols = c(3:121),
                names_to = "year",
                values_to = "SSP5-8.5") %>% 
-  mutate(year = ymd(year))
+  mutate(year = as.numeric(year)) %>% 
+  filter(year >= 2021)
 
 ## PROCESSING ##################################################################
 
-# X ----------------------------------------------------------------------------
+# Get unique combinations-------------------------------------------------------
+# This means I do a single join, instead of n_years * n_scenarios
 grid <- ssp126 %>% 
+  # From Nur's email. These pixels need to be filtered out. They don't actually contain kelp.
+  # This is just a hot-fix, they should ultimately be removed from source before going to
+  # Dave's analysis. For future reference, without this filter, the original data.frame
+  # has 2,282 pixels with kelp and using the filter leaves it at 2163
+  filter(!(lon > 21.95 & lon < 33.5 & lat > -38 & lat < -25)) %>%
+  filter(!(lon > 149 & lon < 151 & lat > -37.5)) %>%
+  filter(!(lon > 169 & lon < 179 & lat > -40.5)) %>% 
   select(lon, lat) %>% 
   distinct() %>% 
   st_as_sf(coords = c("lon", "lat"),
            crs = 4326) %>% 
   st_join(meow) %>% 
-  bind_cols(st_coordinates(.)) %>% 
-  st_drop_geometry() %>% 
-  select(lon = X, lat = Y, everything())
+  mutate(realm = fct_relevel(realm, 
+                             "Arctic",
+                             "Temperate Northern Pacific",
+                             "Temperate South America",
+                             "Southern Ocean",
+                             "Temperate Southern Africa",
+                             "Temperate Australasia"))
 
 # X ----------------------------------------------------------------------------
 data <- ssp126 %>% 
@@ -92,8 +121,15 @@ data <- ssp126 %>%
   pivot_longer(cols = 4:6,
                names_to = "ssp",
                values_to = "MHW") %>% 
-  left_join(grid, by = c("lat", "lon"))
+  bind_rows(hist) %>% 
+  arrange(year, lat, lon) %>% 
+  inner_join(grid %>% 
+               bind_cols(st_coordinates(.)) %>% 
+               st_drop_geometry() %>% 
+               select(lon = X, lat = Y, everything()), by = c("lat", "lon"))     # add ecoregion info
 
+
+# Define a function to calculate percentiles
 pct_range <- function(x, pct = 0.95) {
   l_lim <- (1 - pct) / 2
   u_lim <- pct + l_lim
@@ -106,7 +142,7 @@ pct_range <- function(x, pct = 0.95) {
 
 ## VISUALIZE ###################################################################
 
-# X ----------------------------------------------------------------------------
+# Build the main plot ----------------------------------------------------------
 plot <- ggplot(data = data,
        mapping = aes(x = year, y = MHW, color = ssp, fill = ssp, group = ssp)) +
   stat_summary(geom = "ribbon",
@@ -114,18 +150,20 @@ plot <- ggplot(data = data,
                fun.args = list(pct = 0.90),
                color = "transparent",
                alpha = 0.25) +
-  stat_summary(geom = "line", fun = "median") +
+  stat_summary(geom = "line", fun = "mean") +
+  # stat_summary(geom = "line", fun = "median", linetype = "dashed") +
   scale_color_manual(values = ssp_palette, aesthetics = c("fill", "color")) +
   guides(color = guide_legend(title.position = "top", title.hjust = 0.5,
                               title = "SSP"),
          fill = "none") +
   theme(legend.position = "bottom") +
   labs(x = "Year",
-       y = "Median Cumulative Marine Heatwave Intensity (°C days)")
+       y = "Cumulative Marine Heatwave Intensity (°C days)")
 
+# And the sub-plots
 realm <- plot + 
   facet_wrap(~realm,
-             ncol = 3)
+             ncol = 3, dir = "v")
 
 province <- plot + 
   facet_wrap(~province,
@@ -135,6 +173,50 @@ ecoregion <- plot +
   facet_wrap(~ecoregion,
              ncol = 5)
 
+# MAP
+realms <- meow %>% 
+  filter(ecoregion %in% unique(data$ecoregion)) %>% 
+  group_by(realm, ecoregion) %>% 
+  summarise(a = 1, .groups = "drop") %>% 
+  select(realm, ecoregion) %>% 
+  mutate(realm = fct_relevel(realm, 
+                             "Arctic",
+                             "Temperate Northern Pacific",
+                             "Temperate South America",
+                             "Southern Ocean",
+                             "Temperate Southern Africa",
+                             "Temperate Australasia"))
+
+world <- rnaturalearth::ne_countries(returnclass = "sf")
+
+map <- ggplot() +
+  geom_sf(data = realms,
+          mapping = aes(fill = realm),
+          color = "black",
+          size = 0.1,
+          alpha = 0.75) +
+  geom_sf(data = grid,
+          color = "black",
+          size = 1) +
+  geom_sf(data = world,
+          color = "black",
+          fill = "gray",
+          linewidth = 0.5) +
+  geom_sf(data = world,
+          color = "gray",
+          fill = "gray",
+          linewidth = 0.1) +
+  scale_fill_brewer(palette = "Set3") +
+  guides(fill = guide_legend(title.position = "top",
+                             title.hjust = 0.5,
+                             title = "Realm")) +
+  theme_void() +
+  theme(legend.position = "bottom")
+
+fig <- plot_grid(map, realm,
+                 ncol = 1,
+                 labels = "auto")
+
 
 ## EXPORT ######################################################################
 
@@ -143,6 +225,11 @@ ggsave(plot = plot,
        filename = here("img", "MHW_global.pdf"),
        width = 12,
        height = 6)
+
+ggsave(plot = fig,
+       filename = here("img", "Map_and_mhw_by_realm.pdf"),
+       width = 8,
+       height = 10)
 
 ggsave(plot = realm,
        filename = here("img", "MHW_realm.pdf"),
@@ -158,3 +245,4 @@ ggsave(plot = ecoregion,
        filename = here("img", "MHW_ecoregion.pdf"),
        width = 12,
        height = 12)
+
