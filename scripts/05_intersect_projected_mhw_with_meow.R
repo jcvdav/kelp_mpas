@@ -151,7 +151,6 @@ plot <- ggplot(data = data,
                color = "transparent",
                alpha = 0.25) +
   stat_summary(geom = "line", fun = "mean") +
-  # stat_summary(geom = "line", fun = "median", linetype = "dashed") +
   scale_color_manual(values = ssp_palette, aesthetics = c("fill", "color")) +
   guides(color = guide_legend(title.position = "top", title.hjust = 0.5,
                               title = "SSP"),
@@ -246,3 +245,5 @@ ggsave(plot = ecoregion,
        width = 12,
        height = 12)
 
+write_csv(x = data,
+          file = here("data/output/annual_MHW_exposure_by_SSP_and_meow.csv"))
